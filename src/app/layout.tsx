@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
       .in("setting_key", ["site_title", "site_description", "site_favicon"]);
 
     if (data) {
-      for (const row of data) {
+      for (const row of data as { setting_key: string; setting_value: string | null }[]) {
         if (row.setting_key === "site_title" && row.setting_value) siteTitle = row.setting_value;
         if (row.setting_key === "site_description" && row.setting_value) siteDescription = row.setting_value;
         if (row.setting_key === "site_favicon" && row.setting_value) faviconUrl = row.setting_value;
@@ -64,7 +64,7 @@ async function getAnalyticsScript(): Promise<string | null> {
       .select("setting_value")
       .eq("setting_key", "site_analytics_code")
       .single();
-    return data?.setting_value || null;
+    return (data as { setting_value: string | null } | null)?.setting_value || null;
   } catch {
     return null;
   }

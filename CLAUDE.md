@@ -30,6 +30,7 @@ Viajeros is a refactored version of [TravelMap](https://github.com/fabiomb/Trave
 ## Database Schema
 
 Tables (all use UUID primary keys, `ON DELETE CASCADE` foreign keys):
+
 - `admins` — maps `auth.users` to admin role
 - `trips` — title, description, dates, color_hex, status (draft/published/planned)
 - `routes` — trip_id FK, transport_type (plane/car/bike/walk/ship/train/bus/aerial), geojson_data (JSONB), color, distance_meters, dates
@@ -95,6 +96,7 @@ src/
 ## Current Status
 
 All 5 phases are complete:
+
 - Phase 0: Project structure, configs, Supabase clients ✅
 - Phase 1: Postgres schema, RLS, Storage, models ✅
 - Phase 2: Auth, admin layout, CRUD (trips/points/routes/tags/settings) ✅
