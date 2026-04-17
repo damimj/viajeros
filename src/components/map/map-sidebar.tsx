@@ -1,169 +1,100 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronLeft, ChevronRight, Filter, MapPin, Route as RouteIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface TripMeta {
-  id: string;
-  title: string;
-  color: string;
-  startDate: string | null;
-  endDate: string | null;
-  tags: string[];
-  pointCount: number;
-  routeCount: number;
-}
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import type { TripData } from "@/hooks/use-map-data";
 
 interface MapSidebarProps {
-  trips: TripMeta[];
-  selectedTripIds: Set<string> | null;
-  onSelectionChange: (ids: Set<string> | null) => void;
+  trips: TripData[];
+  selectedTripId: string | null;
+  onSelectTrip: (id: string | null) => void;
 }
 
-export function MapSidebar({
-  trips,
-  selectedTripIds,
-  onSelectionChange,
-}: MapSidebarProps) {
+export function MapSidebar({ trips, selectedTripId, onSelectTrip }: MapSidebarProps) {
   const t = useTranslations("map");
   const [collapsed, setCollapsed] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const isAllSelected = selectedTripIds === null;
-
-  const filteredTrips = trips.filter((trip) =>
-    trip.title.toLowerCase().includes(search.toLowerCase()) ||
-    trip.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase())),
-  );
-
-  function toggleTrip(tripId: string) {
-    if (isAllSelected) {
-      // From "all" → select only this trip
-      onSelectionChange(new Set([tripId]));
-    } else if (selectedTripIds!.has(tripId)) {
-      const next = new Set(selectedTripIds!);
-      next.delete(tripId);
-      // If nothing selected, go back to all
-      onSelectionChange(next.size === 0 ? null : next);
-    } else {
-      const next = new Set(selectedTripIds!);
-      next.add(tripId);
-      // If all selected, go to null (show all)
-      onSelectionChange(next.size === trips.length ? null : next);
-    }
-  }
-
-  function showAll() {
-    onSelectionChange(null);
-  }
 
   return (
     <>
       {/* Toggle button */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="fixed left-0 top-1/2 z-20 -translate-y-1/2 rounded-r-md border border-l-0 bg-background p-1.5 shadow-md transition-all"
-        style={{ left: collapsed ? 0 : "18rem" }}
+        className="absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-r-md border border-l-0 bg-white/90 p-1.5 shadow-md backdrop-blur-sm transition-transform"
+        style={{ transform: collapsed ? "translateX(0) translateY(-50%)" : "translateX(320px) translateY(-50%)" }}
       >
-        {collapsed ? (
-          <ChevronRight className="h-4 w-4" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" />
-        )}
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>
 
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-10 w-72 overflow-y-auto border-r bg-background/95 shadow-lg backdrop-blur transition-transform",
-          collapsed && "-translate-x-full",
-        )}
+      {/* Sidebar panel */}
+      <div
+        className={`absolute left-0 top-0 z-10 h-full w-80 overflow-y-auto bg-white/95 shadow-lg backdrop-blur-sm transition-transform ${
+          collapsed ? "-translate-x-full" : "translate-x-0"
+        }`}
       >
         <div className="p-4">
-          {/* Header */}
-          <div className="mb-4 flex items-center gap-2">
-            <Filter className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold">{t("filterTrips")}</h2>
-          </div>
+          <h2 className="mb-1 text-lg font-bold">{t("filterTrips")}</h2>
 
-          {/* Search */}
-          <input
-            type="text"
-            placeholder={`${t("filterTrips")}...`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="mb-3 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-
-          {/* Show All button */}
+          {/* Show all button */}
           <button
-            onClick={showAll}
-            className={cn(
-              "mb-3 w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
-              isAllSelected
+            onClick={() => onSelectTrip(null)}
+            className={`mb-3 w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
+              selectedTripId === null
                 ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent",
-            )}
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
           >
-            {t("showAll")} ({trips.length})
+            {t("allTrips")} ({trips.length})
           </button>
 
           {/* Trip list */}
           <div className="space-y-1">
-            {filteredTrips.map((trip) => {
-              const isSelected = isAllSelected || selectedTripIds?.has(trip.id);
+            {trips.map((trip) => {
+              const isSelected = selectedTripId === trip.id;
+              const pointCount = trip.points_of_interest.length;
+              const routeCount = trip.routes.length;
+              const tags = trip.trip_tags ?? [];
 
               return (
                 <button
                   key={trip.id}
-                  onClick={() => toggleTrip(trip.id)}
-                  className={cn(
-                    "w-full rounded-md px-3 py-2.5 text-left transition-colors",
-                    isSelected && !isAllSelected
-                      ? "bg-accent"
-                      : "hover:bg-accent/50",
-                  )}
+                  onClick={() => onSelectTrip(isSelected ? null : trip.id)}
+                  className={`w-full rounded-md px-3 py-2.5 text-left transition-colors ${
+                    isSelected
+                      ? "bg-primary/10 ring-1 ring-primary/30"
+                      : "hover:bg-slate-50"
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <span
                       className="inline-block h-3 w-3 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: trip.color }}
+                      style={{ backgroundColor: trip.color_hex }}
                     />
-                    <span className="truncate text-sm font-medium">
-                      {trip.title}
-                    </span>
+                    <span className="text-sm font-medium leading-tight">{trip.title}</span>
                   </div>
 
-                  <div className="ml-5 mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                    {trip.startDate && (
-                      <span>
-                        {trip.startDate}
-                        {trip.endDate ? ` → ${trip.endDate}` : ""}
-                      </span>
-                    )}
+                  {/* Date range */}
+                  {(trip.start_date || trip.end_date) && (
+                    <div className="ml-5 mt-0.5 text-xs text-muted-foreground">
+                      {trip.start_date ?? "?"} → {trip.end_date ?? "?"}
+                    </div>
+                  )}
+
+                  {/* Counts */}
+                  <div className="ml-5 mt-1 flex gap-2 text-xs text-muted-foreground">
+                    {pointCount > 0 && <span>{pointCount} pts</span>}
+                    {routeCount > 0 && <span>{routeCount} routes</span>}
                   </div>
 
-                  <div className="ml-5 mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-0.5">
-                      <MapPin className="h-3 w-3" />
-                      {trip.pointCount}
-                    </span>
-                    <span className="inline-flex items-center gap-0.5">
-                      <RouteIcon className="h-3 w-3" />
-                      {trip.routeCount}
-                    </span>
-                  </div>
-
-                  {trip.tags.length > 0 && (
+                  {/* Tags */}
+                  {tags.length > 0 && (
                     <div className="ml-5 mt-1 flex flex-wrap gap-1">
-                      {trip.tags.map((tag) => (
+                      {tags.map((tag) => (
                         <span
-                          key={tag}
+                          key={tag.id}
                           className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
                         >
-                          {tag}
+                          {tag.tag_name}
                         </span>
                       ))}
                     </div>
@@ -172,14 +103,8 @@ export function MapSidebar({
               );
             })}
           </div>
-
-          {filteredTrips.length === 0 && (
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              {t("allTrips")}
-            </p>
-          )}
         </div>
-      </aside>
+      </div>
     </>
   );
 }

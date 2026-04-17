@@ -3,290 +3,231 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { MAP_STYLES } from "@/lib/constants";
-import type { MapStyle } from "@/types/domain";
+import Supercluster from "supercluster";
+import type { TripData, PointData } from "@/hooks/use-map-data";
+import type { MapSettings } from "@/hooks/use-map-settings";
 
 interface TravelMapProps {
-  styleKey: MapStyle;
-  features: GeoJSON.Feature[];
-  transportColors: Record<string, string>;
-  clusterEnabled: boolean;
-  clusterRadius: number;
-  clusterMaxZoom: number;
-  selectedTripIds: Set<string> | null;
-  onPointClick?: (feature: GeoJSON.Feature) => void;
+  trips: TripData[];
+  settings: MapSettings;
+  selectedTripId: string | null;
+  onMapReady?: (map: maplibregl.Map) => void;
 }
 
-export function TravelMap({
-  styleKey,
-  features,
-  transportColors,
-  clusterEnabled,
-  clusterRadius,
-  clusterMaxZoom,
-  selectedTripIds,
-  onPointClick,
-}: TravelMapProps) {
+function poiToFeature(
+  poi: PointData,
+  trip: TripData,
+): Supercluster.PointFeature<{ poi: PointData; trip: TripData }> {
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Point",
+      coordinates: [Number(poi.longitude), Number(poi.latitude)],
+    },
+    properties: { poi, trip },
+  };
+}
+
+export function TravelMap({ trips, settings, selectedTripId, onMapReady }: TravelMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const clusterRef = useRef<Supercluster<{ poi: PointData; trip: TripData }> | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const popupRef = useRef<maplibregl.Popup | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  // Filter features by selected trips
-  const filteredFeatures = selectedTripIds
-    ? features.filter((f) => selectedTripIds.has(f.properties?.tripId))
-    : features;
-
-  const pointFeatures = filteredFeatures.filter(
-    (f) => f.properties?.featureType === "point",
-  );
-  const routeFeatures = filteredFeatures.filter(
-    (f) => f.properties?.featureType === "route",
-  );
+  const visibleTrips = selectedTripId
+    ? trips.filter((t) => t.id === selectedTripId)
+    : trips;
 
   // Initialize map
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const styleUrl = MAP_STYLES[styleKey]?.url ?? MAP_STYLES.voyager.url;
+    if (!containerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: styleUrl,
+      style: settings.mapStyleUrl,
       center: [0, 20],
       zoom: 2,
       attributionControl: true,
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");
-    map.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: false,
-      }),
-      "top-right",
-    );
 
     map.on("load", () => {
       mapRef.current = map;
       setMapReady(true);
+      onMapReady?.(map);
     });
 
     return () => {
-      mapRef.current = null;
-      setMapReady(false);
       map.remove();
+      mapRef.current = null;
     };
-  }, [styleKey]);
+  }, [settings.mapStyleUrl]);
 
-  // Update route layers
+  // Build Supercluster index
+  useEffect(() => {
+    const points: Supercluster.PointFeature<{ poi: PointData; trip: TripData }>[] = [];
+    for (const trip of visibleTrips) {
+      for (const poi of trip.points_of_interest) {
+        points.push(poiToFeature(poi, trip));
+      }
+    }
+
+    const cluster = new Supercluster<{ poi: PointData; trip: TripData }>({
+      radius: settings.clusterMaxRadius,
+      maxZoom: settings.clusterDisableAtZoom,
+    });
+    cluster.load(points);
+    clusterRef.current = cluster;
+  }, [visibleTrips, settings.clusterMaxRadius, settings.clusterDisableAtZoom]);
+
+  function showPopup(map: maplibregl.Map, lng: number, lat: number, poi: PointData, trip: TripData) {
+    popupRef.current?.remove();
+
+    const imgHtml = poi.image_path
+      ? `<img src="${poi.image_path}" alt="${poi.title}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px 8px 0 0;" />`
+      : "";
+    const dateHtml = poi.visit_date
+      ? `<div style="font-size:11px;color:#888;margin-top:4px;">${new Date(poi.visit_date).toLocaleDateString()}</div>`
+      : "";
+
+    const html = `
+      <div style="min-width:200px;max-width:280px;">
+        ${imgHtml}
+        <div style="padding:10px;">
+          <div style="font-size:14px;font-weight:600;">${poi.title}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${trip.color_hex};margin-right:4px;vertical-align:middle;"></span>
+            ${trip.title}
+          </div>
+          ${poi.description ? `<div style="font-size:12px;margin-top:6px;color:#444;">${poi.description}</div>` : ""}
+          ${dateHtml}
+          <div style="font-size:11px;color:#aaa;margin-top:4px;">${poi.type}</div>
+        </div>
+      </div>
+    `;
+
+    popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: "300px", offset: 12 })
+      .setLngLat([lng, lat])
+      .setHTML(html)
+      .addTo(map);
+  }
+
+  // Render markers/clusters
+  const updateMarkers = useCallback(() => {
+    const map = mapRef.current;
+    const cluster = clusterRef.current;
+    if (!map || !cluster) return;
+
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    const bounds = map.getBounds();
+    const zoom = Math.floor(map.getZoom());
+
+    const items = settings.clusterEnabled
+      ? cluster.getClusters([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()], zoom)
+      : visibleTrips.flatMap((trip) => trip.points_of_interest.map((poi) => poiToFeature(poi, trip)));
+
+    for (const c of items) {
+      const [lng, lat] = c.geometry.coordinates;
+      const props = c.properties;
+
+      if ("cluster" in props && props.cluster) {
+        const count = props.point_count;
+        const el = document.createElement("div");
+        el.textContent = String(count);
+        const size = count < 10 ? 32 : count < 100 ? 40 : 48;
+        el.style.cssText = `width:${size}px;height:${size}px;background:hsl(222 47% 11%/0.85);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;`;
+        el.addEventListener("click", () => {
+          map.flyTo({
+            center: [lng, lat],
+            zoom: cluster.getClusterExpansionZoom(
+              (c as Supercluster.ClusterFeature<{ poi: PointData; trip: TripData }>).id as number,
+            ),
+          });
+        });
+        markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map));
+      } else {
+        const { poi, trip } = props as { poi: PointData; trip: TripData };
+        const el = document.createElement("div");
+        el.style.cssText = `width:14px;height:14px;background:${trip.color_hex};border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer;`;
+        el.addEventListener("click", () => showPopup(map, lng, lat, poi, trip));
+        markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map));
+      }
+    }
+  }, [visibleTrips, settings.clusterEnabled, settings.clusterMaxRadius, settings.clusterDisableAtZoom]);
+
+  // Render routes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
     // Remove old route layers/sources
-    const existingLayers = map.getStyle().layers ?? [];
-    for (const layer of existingLayers) {
-      if (layer.id.startsWith("route-")) {
-        map.removeLayer(layer.id);
-      }
-    }
-    for (const sourceId of Object.keys(map.getStyle().sources ?? {})) {
-      if (sourceId.startsWith("route-")) {
-        map.removeSource(sourceId);
-      }
-    }
+    const style = map.getStyle();
+    (style?.layers ?? []).forEach((l) => { if (l.id.startsWith("route-")) map.removeLayer(l.id); });
+    Object.keys(style?.sources ?? {}).forEach((s) => { if (s.startsWith("route-")) map.removeSource(s); });
 
-    // Add route features individually for per-route coloring
-    routeFeatures.forEach((feature, i) => {
-      const sourceId = `route-${i}`;
-      const color =
-        feature.properties?.color ??
-        transportColors[feature.properties?.transportType] ??
-        "#3388ff";
+    for (const trip of visibleTrips) {
+      for (const route of trip.routes) {
+        const sourceId = `route-${route.id}`;
+        const layerId = `route-line-${route.id}`;
+        const raw = route.geojson_data;
+        let data: GeoJSON.FeatureCollection;
 
-      map.addSource(sourceId, {
-        type: "geojson",
-        data: feature,
-      });
+        if (raw.type === "FeatureCollection") data = raw as GeoJSON.FeatureCollection;
+        else if (raw.type === "Feature") data = { type: "FeatureCollection", features: [raw as GeoJSON.Feature] };
+        else continue;
 
-      map.addLayer({
-        id: sourceId,
-        type: "line",
-        source: sourceId,
-        paint: {
+        if (map.getSource(sourceId)) continue;
+        map.addSource(sourceId, { type: "geojson", data });
+
+        const color = route.color || settings.transportColors[route.transport_type] || trip.color_hex;
+        const paint: maplibregl.LinePaint = {
           "line-color": color,
-          "line-width": 3,
+          "line-width": route.transport_type === "plane" ? 2 : 3,
           "line-opacity": 0.8,
-        },
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-        },
-      });
-    });
-  }, [routeFeatures, transportColors, mapReady]);
+        };
+        if (route.transport_type === "plane") {
+          (paint as Record<string, unknown>)["line-dasharray"] = [4, 4];
+        }
 
-  // Update point layers with clustering
+        map.addLayer({ id: layerId, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint });
+      }
+    }
+  }, [visibleTrips, mapReady, settings.transportColors]);
+
+  // Update markers on map move
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+    updateMarkers();
+    const handler = () => updateMarkers();
+    map.on("moveend", handler);
+    map.on("zoomend", handler);
+    return () => { map.off("moveend", handler); map.off("zoomend", handler); };
+  }, [mapReady, updateMarkers]);
 
-    // Remove existing point layers
-    const layersToRemove = ["clusters", "cluster-count", "unclustered-point"];
-    for (const id of layersToRemove) {
-      if (map.getLayer(id)) map.removeLayer(id);
-    }
-    if (map.getSource("points")) map.removeSource("points");
+  // Fit bounds
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || visibleTrips.length === 0) return;
 
-    if (pointFeatures.length === 0) return;
-
-    const geojsonSource: GeoJSON.FeatureCollection = {
-      type: "FeatureCollection",
-      features: pointFeatures,
-    };
-
-    map.addSource("points", {
-      type: "geojson",
-      data: geojsonSource,
-      cluster: clusterEnabled,
-      clusterRadius: clusterRadius,
-      clusterMaxZoom: clusterMaxZoom,
-    });
-
-    if (clusterEnabled) {
-      // Cluster circles
-      map.addLayer({
-        id: "clusters",
-        type: "circle",
-        source: "points",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": [
-            "step",
-            ["get", "point_count"],
-            "#51bbd6",
-            10,
-            "#f1f075",
-            30,
-            "#f28cb1",
-          ],
-          "circle-radius": [
-            "step",
-            ["get", "point_count"],
-            18,
-            10,
-            24,
-            30,
-            32,
-          ],
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#fff",
-        },
-      });
-
-      // Cluster count labels
-      map.addLayer({
-        id: "cluster-count",
-        type: "symbol",
-        source: "points",
-        filter: ["has", "point_count"],
-        layout: {
-          "text-field": "{point_count_abbreviated}",
-          "text-font": ["Open Sans Bold"],
-          "text-size": 12,
-        },
-        paint: {
-          "text-color": "#333",
-        },
-      });
-    }
-
-    // Individual points
-    map.addLayer({
-      id: "unclustered-point",
-      type: "circle",
-      source: "points",
-      filter: clusterEnabled ? ["!", ["has", "point_count"]] : ["all"],
-      paint: {
-        "circle-color": ["coalesce", ["get", "tripColor"], "#3388ff"],
-        "circle-radius": 8,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#fff",
-      },
-    });
-
-    // Click handlers
-    if (clusterEnabled) {
-      map.on("click", "clusters", (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
-        if (!features.length) return;
-        const clusterId = features[0].properties?.cluster_id;
-        const source = map.getSource("points") as maplibregl.GeoJSONSource;
-        source.getClusterExpansionZoom(clusterId).then((zoom) => {
-          map.easeTo({
-            center: (features[0].geometry as GeoJSON.Point).coordinates as [number, number],
-            zoom,
-          });
-        });
-      });
-    }
-
-    map.on("click", "unclustered-point", (e) => {
-      const feature = e.features?.[0];
-      if (feature && onPointClick) {
-        onPointClick(feature);
-      }
-    });
-
-    // Cursor
-    map.on("mouseenter", "unclustered-point", () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", "unclustered-point", () => {
-      map.getCanvas().style.cursor = "";
-    });
-    if (clusterEnabled) {
-      map.on("mouseenter", "clusters", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "clusters", () => {
-        map.getCanvas().style.cursor = "";
-      });
-    }
-
-    // Fit bounds to all points
-    if (pointFeatures.length > 0) {
-      const bounds = new maplibregl.LngLatBounds();
-      pointFeatures.forEach((f) => {
-        const coords = (f.geometry as GeoJSON.Point).coordinates;
-        bounds.extend(coords as [number, number]);
-      });
-      // Also include route features
-      routeFeatures.forEach((f) => {
-        const geom = f.geometry;
-        if (geom.type === "LineString") {
-          (geom as GeoJSON.LineString).coordinates.forEach((c) =>
-            bounds.extend(c as [number, number]),
-          );
-        } else if (geom.type === "MultiLineString") {
-          (geom as GeoJSON.MultiLineString).coordinates.forEach((line) =>
-            line.forEach((c) => bounds.extend(c as [number, number])),
-          );
-        }
-      });
-
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 60, maxZoom: 12 });
+    const coords: [number, number][] = [];
+    for (const trip of visibleTrips) {
+      for (const poi of trip.points_of_interest) {
+        coords.push([Number(poi.longitude), Number(poi.latitude)]);
       }
     }
-  }, [
-    pointFeatures,
-    clusterEnabled,
-    clusterRadius,
-    clusterMaxZoom,
-    mapReady,
-    onPointClick,
-  ]);
+    if (coords.length === 0) return;
+    if (coords.length === 1) { map.flyTo({ center: coords[0], zoom: 12 }); return; }
+
+    const bounds = new maplibregl.LngLatBounds(coords[0], coords[0]);
+    coords.forEach((c) => bounds.extend(c));
+    map.fitBounds(bounds, { padding: 60, maxZoom: 14 });
+  }, [visibleTrips, mapReady]);
 
   return <div ref={containerRef} className="map-container" />;
 }
