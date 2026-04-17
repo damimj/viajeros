@@ -35,7 +35,7 @@ export interface Route {
   id: string;
   trip_id: string;
   transport_type: TransportType;
-  geojson_data: object;
+  geojson_data: Record<string, unknown>;
   is_round_trip: boolean;
   distance_meters: number;
   color: string;

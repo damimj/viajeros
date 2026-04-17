@@ -36,7 +36,8 @@ export default function TagsPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("trip_tags")
-      .insert({ trip_id: selectedTripId, tag_name: newTag.trim().toLowerCase() })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert({ trip_id: selectedTripId, tag_name: newTag.trim().toLowerCase() } as any)
       .select()
       .single();
     if (data) {

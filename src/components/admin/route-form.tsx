@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import type { Json } from "@/types/database";
 import { useToast } from "@/components/shared/toast";
 import type { Route, TransportType, Trip } from "@/types/domain";
 import { TRANSPORT_TYPES, DEFAULT_TRANSPORT_COLORS } from "@/lib/constants";
@@ -14,7 +15,7 @@ interface RouteFormProps {
   onSubmit: (data: {
     trip_id: string;
     transport_type: TransportType;
-    geojson_data: object;
+    geojson_data: Json;
     is_round_trip: boolean;
     distance_meters: number;
     color: string;
@@ -58,9 +59,9 @@ export function RouteForm({ route, trips, defaultTripId, onSubmit }: RouteFormPr
     e.preventDefault();
     setGeojsonError(null);
 
-    let parsed: object;
+    let parsed: Json;
     try {
-      parsed = JSON.parse(geojson);
+      parsed = JSON.parse(geojson) as Json;
     } catch {
       setGeojsonError("Invalid GeoJSON — please check the format.");
       return;

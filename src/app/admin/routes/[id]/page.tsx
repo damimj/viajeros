@@ -4,6 +4,7 @@ import { getTrips } from "@/lib/models/trips";
 import { RouteForm } from "@/components/admin/route-form";
 import { EntityActions } from "@/components/admin/entity-actions";
 import type { TransportType } from "@/types/domain";
+import type { Json } from "@/types/database";
 
 export const metadata = { title: "Edit Route" };
 
@@ -15,7 +16,7 @@ export default async function EditRoutePage({ params }: { params: Promise<{ id: 
   async function handleUpdate(data: {
     trip_id: string;
     transport_type: TransportType;
-    geojson_data: object;
+    geojson_data: Json;
     is_round_trip: boolean;
     distance_meters: number;
     color: string;

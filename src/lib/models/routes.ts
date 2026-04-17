@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Route, TransportType } from "@/types/domain";
+import type { Json } from "@/types/database";
 
 export async function getRoutesByTrip(tripId: string): Promise<Route[]> {
   const supabase = createAdminClient();
@@ -22,7 +23,7 @@ export async function getRouteById(id: string): Promise<Route | null> {
 export async function createRoute(input: {
   trip_id: string;
   transport_type: TransportType;
-  geojson_data: object;
+  geojson_data: Json;
   is_round_trip?: boolean;
   distance_meters?: number;
   color?: string;
@@ -42,7 +43,7 @@ export async function updateRoute(
   input: Partial<{
     trip_id: string;
     transport_type: TransportType;
-    geojson_data: object;
+    geojson_data: Json;
     is_round_trip: boolean;
     distance_meters: number;
     color: string;

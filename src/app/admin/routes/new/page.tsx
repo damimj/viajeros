@@ -3,6 +3,7 @@ import { getTrips } from "@/lib/models/trips";
 import { createRoute } from "@/lib/models/routes";
 import { RouteForm } from "@/components/admin/route-form";
 import type { TransportType } from "@/types/domain";
+import type { Json } from "@/types/database";
 
 export const metadata = { title: "New Route" };
 
@@ -17,7 +18,7 @@ export default async function NewRoutePage({
   async function handleCreate(data: {
     trip_id: string;
     transport_type: TransportType;
-    geojson_data: object;
+    geojson_data: Json;
     is_round_trip: boolean;
     distance_meters: number;
     color: string;
