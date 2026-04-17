@@ -10,23 +10,28 @@ Refactored from [TravelMap](https://github.com/fabiomb/TravelMap) (PHP/MySQL) fo
 
 ### Public Map
 - Full-screen interactive map (MapLibre GL + WebGL rendering)
-- deck.gl animated flight arcs
-- Supercluster intelligent clustering (configurable)
-- Trip filtering sidebar
-- Detailed popups with images
-- Color-coded routes by transport type
-- Public REST API (`/api/geojson`)
+- deck.gl animated flight arcs (great-circle)
+- Supercluster intelligent clustering (configurable from admin)
+- Trip filtering sidebar with tags, dates, and point/route counts
+- Detailed popups with images, descriptions, and dates
+- Color-coded routes by transport type (8 types)
+- Public REST API (`/api/geojson`) with CORS
+- URL-based trip filtering (`?trip_id=UUID`)
 - PWA with offline tile caching (Service Worker)
-- Multi-language (English & Spanish) with browser detection
+- Multi-language (English & Spanish) with browser auto-detection
 
 ### Admin Panel
 - Full CRUD for trips, points of interest, routes, and tags
-- Visual route editor on the map
-- Image upload with client-side resize/compression
-- FlightRadar CSV importer (with preview, merge, and flight reorganization)
-- Airbnb CSV importer (with geocoding and date-based trip linking)
-- Global settings panel (map style, clustering, SEO, transport colors, image processing)
+- Trips with title, description, dates, color, status (draft/published/planned)
+- Points with coordinates, type (visit/stay/food/waypoint), image upload
+- Routes with GeoJSON, transport type, color, distance, dates
+- Tags management with trip assignment
+- FlightRadar CSV importer (preview, merge trips, move flights, edit titles)
+- Airbnb CSV importer (auto-geocoding via Nominatim, date-based trip linking)
+- Settings panel with 4 tabs: General, Map, Images, Site
+- Favicon upload to Supabase Storage
 - Protected by Supabase Auth (email/password)
+- Responsive sidebar with mobile support
 
 ---
 
@@ -35,22 +40,15 @@ Refactored from [TravelMap](https://github.com/fabiomb/TravelMap) (PHP/MySQL) fo
 | Layer      | Technology                                    |
 |------------|-----------------------------------------------|
 | Framework  | Next.js 15 (App Router, TypeScript)           |
-| UI         | Tailwind CSS + shadcn/ui                      |
+| UI         | Tailwind CSS + shadcn/ui design tokens        |
 | Database   | Supabase Postgres (with RLS)                  |
 | Auth       | Supabase Auth (email/password)                |
 | Storage    | Supabase Storage (images, favicon)            |
 | Maps       | MapLibre GL JS + deck.gl + Supercluster       |
+| Images     | browser-image-compression (client-side)       |
+| CSV        | PapaParse (client-side parsing)               |
 | i18n       | next-intl (EN + ES)                           |
 | Deploy     | Vercel                                        |
-
----
-
-## Prerequisites
-
-- **Node.js** 18.17+ (LTS recommended)
-- **npm** or **pnpm**
-- A **Supabase** project ([create one free](https://supabase.com/dashboard))
-- A **Vercel** account (for deployment)
 
 ---
 
@@ -66,28 +64,13 @@ npm install
 
 ### 2. Set up Supabase
 
-1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
-2. Create a new project (or use an existing one)
-3. Go to **SQL Editor** and run the migration file:
-   - `supabase/migrations/001_initial_schema.sql`
-4. Go to **Storage** and create two buckets:
-   - `uploads` — public read, authenticated write
-   - `settings` — public read, authenticated write
-5. Go to **Authentication > Users** and create your admin user (email/password)
+See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for detailed instructions.
 
 ### 3. Configure environment
 
 ```bash
 cp .env.example .env.local
-```
-
-Edit `.env.local` with your Supabase credentials from **Settings > API**:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# Edit .env.local with your Supabase credentials
 ```
 
 ### 4. Run locally
@@ -96,139 +79,46 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the public map.
-Open [http://localhost:3000/admin](http://localhost:3000/admin) for the admin panel (will redirect to login).
+- **Public map**: [http://localhost:3000](http://localhost:3000)
+- **Admin panel**: [http://localhost:3000/admin](http://localhost:3000/admin)
+- **API**: [http://localhost:3000/api/geojson](http://localhost:3000/api/geojson)
 
 ---
 
-## Project Structure
+## Deployment
 
-```
-viajeros/
-├── public/
-│   ├── icons/              # PWA icons
-│   ├── manifest.json       # PWA manifest
-│   └── sw.js               # Service Worker for tile caching
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx      # Root layout (providers, fonts, i18n)
-│   │   ├── page.tsx        # Public map page
-│   │   ├── login/          # Login page
-│   │   ├── admin/          # Admin panel (protected)
-│   │   │   ├── layout.tsx  # Admin sidebar layout
-│   │   │   ├── page.tsx    # Admin dashboard
-│   │   │   ├── trips/      # Trip CRUD
-│   │   │   ├── points/     # Point CRUD
-│   │   │   ├── routes/     # Route CRUD
-│   │   │   ├── tags/       # Tag CRUD
-│   │   │   ├── settings/   # Settings panel
-│   │   │   ├── import-flights/
-│   │   │   └── import-airbnb/
-│   │   ├── api/
-│   │   │   ├── geojson/    # Public GeoJSON endpoint
-│   │   │   ├── import/     # CSV import endpoints
-│   │   │   └── settings/   # Settings API
-│   │   └── actions/        # Server Actions (locale, etc.)
-│   ├── components/
-│   │   ├── ui/             # shadcn/ui base components
-│   │   ├── map/            # MapLibre, clusters, popups
-│   │   ├── admin/          # Admin-specific components
-│   │   └── shared/         # Shared components (locale switcher, etc.)
-│   ├── lib/
-│   │   ├── supabase/       # Supabase clients (browser, server, admin, middleware)
-│   │   ├── models/         # Data access helpers (trips, points, routes, etc.)
-│   │   ├── i18n/           # Internationalization config
-│   │   ├── utils/          # Utility functions (cn, etc.)
-│   │   └── constants.ts    # Map styles, default settings, transport colors
-│   ├── messages/
-│   │   ├── en.json         # English translations
-│   │   └── es.json         # Spanish translations
-│   └── types/
-│       ├── database.ts     # Supabase-generated DB types
-│       └── domain.ts       # App domain types (Trip, Point, Route, etc.)
-├── supabase/
-│   └── migrations/         # SQL migration files
-├── docs/                   # Additional documentation
-├── .env.example            # Environment variables template
-├── next.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-├── components.json         # shadcn/ui config
-├── vercel.json
-└── package.json
-```
+See [docs/VERCEL_DEPLOY.md](docs/VERCEL_DEPLOY.md) for step-by-step Vercel deployment.
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design overview.
 
 ---
 
-## Database
+## Documentation
 
-### Schema
-
-The database mirrors the original TravelMap structure, translated from MySQL to Postgres:
-
-- **trips** — Travel entries with title, dates, color, publish state
-- **points** — Points of interest / stays with coordinates and images
-- **routes** — GeoJSON routes with transport type
-- **tags** — Organizational tags for trips
-- **trip_tags** — Many-to-many relationship
-- **settings** — Key-value global configuration
-- **admins** — Links `auth.users` to admin role
-
-### Row Level Security (RLS)
-
-| Table   | SELECT (public)               | INSERT/UPDATE/DELETE       |
-|---------|-------------------------------|----------------------------|
-| trips   | `published = true`            | Admin only (via auth.uid)  |
-| points  | Trip is published             | Admin only                 |
-| routes  | Trip is published             | Admin only                 |
-| tags    | Always readable               | Admin only                 |
-| settings| Always readable               | Admin only                 |
-
----
-
-## Deployment to Vercel
-
-### 1. Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit — Viajeros"
-git remote add origin https://github.com/YOUR_USER/viajeros.git
-git push -u origin main
-```
-
-### 2. Import in Vercel
-
-1. Go to [vercel.com/new](https://vercel.com/new)
-2. Import your GitHub repository
-3. Set environment variables (same as `.env.local`)
-4. Deploy
-
-### 3. Update NEXT_PUBLIC_SITE_URL
-
-After deployment, update `NEXT_PUBLIC_SITE_URL` to your Vercel domain:
-
-```env
-NEXT_PUBLIC_SITE_URL=https://viajeros-your-user.vercel.app
-```
+| Document | Description |
+|---|---|
+| [SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) | Database, Storage, Auth setup |
+| [VERCEL_DEPLOY.md](docs/VERCEL_DEPLOY.md) | Production deployment guide |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture overview |
 
 ---
 
 ## Development Phases
 
 - [x] **Phase 0** — Project structure, configs, Supabase clients, i18n, PWA manifest
-- [ ] **Phase 1** — Postgres schema, RLS policies, Storage buckets, seed data
-- [ ] **Phase 2** — Auth + admin layout + CRUD (trips, points, routes, tags, settings)
-- [ ] **Phase 3** — Public map (MapLibre GL, clustering, deck.gl arcs, filters, popups)
-- [ ] **Phase 4** — CSV importers (FlightRadar, Airbnb) + settings panel
-- [ ] **Phase 5** — PWA optimizations, image processing, final docs
+- [x] **Phase 1** — Postgres schema, RLS policies, Storage buckets, seed data, models
+- [x] **Phase 2** — Auth + admin layout + CRUD (trips, points, routes, tags, settings)
+- [x] **Phase 3** — Public map (MapLibre GL, clustering, deck.gl arcs, filters, popups, i18n)
+- [x] **Phase 4** — CSV importers (FlightRadar, Airbnb) + settings panel + favicon upload
+- [x] **Phase 5** — PWA optimizations, image utils, browser language detection, docs
 
 ---
 
 ## Original Project
 
-Based on [TravelMap](https://github.com/fabiomb/TravelMap) by [Fabio Baccaglioni](https://github.com/fabiomb).
+Based on [TravelMap](https://github.com/fabiomb/TravelMap) by [Fabio Baccaglioni](https://github.com/fabiomb). GPL-3.0 License.
 
 ## License
 
