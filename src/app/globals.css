@@ -66,8 +66,27 @@
   height: 100%;
 }
 
-/* MapLibre overrides */
+/* MapLibre GL overrides */
 .maplibregl-popup-content {
   @apply rounded-lg shadow-lg;
   padding: 0;
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 10px !important;
+}
+
+/* Navigation controls positioning (avoid overlap with sidebar) */
+.maplibregl-ctrl-top-right {
+  top: 10px;
+  right: 10px;
+}
+
+/* Cluster animation */
+.maplibregl-canvas {
+  cursor: grab;
+}
+
+.maplibregl-canvas:active {
+  cursor: grabbing;
 }
