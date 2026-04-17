@@ -21,7 +21,7 @@ export function FlightArcs({ map, trips, transportColors }: FlightArcsProps) {
 
     async function initDeck() {
       try {
-        const [{ Deck }, { ArcLayer }, { MapboxOverlay }] = await Promise.all([
+        const [, { ArcLayer }, { MapboxOverlay }] = await Promise.all([
           import("@deck.gl/core"),
           import("@deck.gl/layers"),
           import("@deck.gl/mapbox"),

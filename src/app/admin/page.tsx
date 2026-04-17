@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Edit, Globe, EyeOff } from "lucide-react";
+import { Plus, Edit } from "lucide-react";
 import { getTrips } from "@/lib/models/trips";
 import { TripActions } from "@/components/admin/trip-actions";
 

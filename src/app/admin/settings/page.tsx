@@ -1,6 +1,5 @@
 import { getAllSettingRows, updateSettings } from "@/lib/models/settings";
 import { revalidatePath } from "next/cache";
-import { FaviconUpload } from "@/components/admin/favicon-upload";
 import { MAP_STYLES, TRANSPORT_TYPES } from "@/lib/constants";
 
 export const metadata = { title: "Settings" };
