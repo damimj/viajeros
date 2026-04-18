@@ -52,7 +52,16 @@ export async function createTrip(input: {
   status?: TripStatus;
 }): Promise<Trip> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("trips").insert(input).select().single();
+  const { data, error } = await supabase
+    .from("trips")
+    .insert({
+      ...input,
+      start_date: input.start_date || undefined,
+      end_date: input.end_date || undefined,
+      description: input.description || undefined,
+    })
+    .select()
+    .single();
   if (error) throw error;
   return data as Trip;
 }
@@ -72,7 +81,12 @@ export async function updateTrip(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("trips")
-    .update(input)
+    .update({
+      ...input,
+      start_date: input.start_date || null,
+      end_date: input.end_date || null,
+      description: input.description || null,
+    })
     .eq("id", id)
     .select()
     .single();
