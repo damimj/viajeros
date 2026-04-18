@@ -72,7 +72,8 @@
     "geojson": "Datos GeoJSON",
     "distance": "Distancia (metros)",
     "roundTrip": "Ida y vuelta",
-    "tripLabel": "Viaje"
+    "tripLabel": "Viaje",
+    "logout": "Cerrar sesión"
   },
   "settings": {
     "title": "Configuración",

@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { TripForm } from "@/components/admin/trip-form";
 import { createTrip } from "@/lib/models/trips";
 import type { TripStatus } from "@/types/domain";
@@ -15,8 +14,7 @@ export default function NewTripPage() {
     status: TripStatus;
   }) {
     "use server";
-    const trip = await createTrip(data);
-    redirect(`/admin/trips/${trip.id}`);
+    await createTrip(data);
   }
 
   return (

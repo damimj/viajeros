@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Route } from "lucide-react";
 import { getTripById, updateTrip, deleteTrip } from "@/lib/models/trips";
@@ -28,13 +28,11 @@ export default async function EditTripPage({ params }: { params: Promise<{ id: s
   }) {
     "use server";
     await updateTrip(id, data);
-    redirect("/admin");
   }
 
   async function handleDelete() {
     "use server";
     await deleteTrip(id);
-    redirect("/admin");
   }
 
   return (
@@ -43,7 +41,7 @@ export default async function EditTripPage({ params }: { params: Promise<{ id: s
         <h1 className="text-2xl font-semibold">Edit Trip</h1>
         <div className="flex items-center gap-2">
           <TripActions tripId={trip.id} currentStatus={trip.status} />
-          <EntityActions onDelete={handleDelete} />
+          <EntityActions onDelete={handleDelete} redirectPath="/admin/trips" />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getPointById, updatePoint, deletePoint } from "@/lib/models/points";
 import { getTrips } from "@/lib/models/trips";
 import { PointForm } from "@/components/admin/point-form";
@@ -27,20 +27,18 @@ export default async function EditPointPage({ params }: { params: Promise<{ id: 
       description: data.description || null,
       visit_date: data.visit_date || null,
     });
-    redirect("/admin/points");
   }
 
   async function handleDelete() {
     "use server";
     await deletePoint(id);
-    redirect("/admin/points");
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Edit Point</h1>
-        <EntityActions onDelete={handleDelete} />
+        <EntityActions onDelete={handleDelete} redirectPath="/admin/points" />
       </div>
       <PointForm point={point} trips={trips} onSubmit={handleUpdate} />
     </div>

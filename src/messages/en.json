@@ -72,7 +72,8 @@
     "geojson": "GeoJSON data",
     "distance": "Distance (meters)",
     "roundTrip": "Round trip",
-    "tripLabel": "Trip"
+    "tripLabel": "Trip",
+    "logout": "Sign out"
   },
   "settings": {
     "title": "Settings",

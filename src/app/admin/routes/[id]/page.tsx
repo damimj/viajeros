@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getRouteById, updateRoute, deleteRoute } from "@/lib/models/routes";
 import { getTrips } from "@/lib/models/trips";
 import { RouteForm } from "@/components/admin/route-form";
@@ -33,20 +33,18 @@ export default async function EditRoutePage({ params }: { params: Promise<{ id: 
       start_datetime: data.start_datetime || null,
       end_datetime: data.end_datetime || null,
     });
-    redirect("/admin/routes");
   }
 
   async function handleDelete() {
     "use server";
     await deleteRoute(id);
-    redirect("/admin/routes");
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Edit Route</h1>
-        <EntityActions onDelete={handleDelete} />
+        <EntityActions onDelete={handleDelete} redirectPath="/admin/routes" />
       </div>
       <RouteForm route={route} trips={trips} onSubmit={handleUpdate} />
     </div>

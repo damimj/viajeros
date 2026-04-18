@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getTrips } from "@/lib/models/trips";
 import { createPoint } from "@/lib/models/points";
 import { PointForm } from "@/components/admin/point-form";
@@ -29,7 +28,6 @@ export default async function NewPointPage({
       description: data.description || null,
       visit_date: data.visit_date || null,
     });
-    redirect("/admin/points");
   }
 
   return (

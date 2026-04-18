@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getTrips } from "@/lib/models/trips";
 import { createRoute } from "@/lib/models/routes";
 import { RouteForm } from "@/components/admin/route-form";
@@ -35,7 +34,6 @@ export default async function NewRoutePage({
       start_datetime: data.start_datetime || null,
       end_datetime: data.end_datetime || null,
     });
-    redirect("/admin/routes");
   }
 
   return (

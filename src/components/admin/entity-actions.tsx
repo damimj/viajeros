@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
 import { useToast } from "@/components/shared/toast";
@@ -10,9 +11,10 @@ interface EntityActionsProps {
   redirectPath?: string;
 }
 
-export function EntityActions({ onDelete }: EntityActionsProps) {
+export function EntityActions({ onDelete, redirectPath }: EntityActionsProps) {
   const t = useTranslations("admin");
   const { showToast } = useToast();
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -25,6 +27,7 @@ export function EntityActions({ onDelete }: EntityActionsProps) {
     try {
       await onDelete();
       showToast(t("deleted"), "success");
+      if (redirectPath) router.push(redirectPath);
     } catch {
       showToast(t("error"), "error");
       setDeleting(false);
