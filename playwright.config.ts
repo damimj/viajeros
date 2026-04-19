@@ -14,7 +14,7 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
   // Single worker locally so the Next.js dev server isn't overwhelmed with
   // simultaneous first-compile requests. CI can parallelise freely.
   workers: process.env.CI ? undefined : 1,
@@ -45,7 +45,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    command: 'NODE_OPTIONS="--max-old-space-size=4096" npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
